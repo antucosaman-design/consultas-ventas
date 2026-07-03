@@ -19,8 +19,8 @@ const C = {
   neg:"#B23A2E", amber:"#B9770F", ambSoft:"#FBF1E0", pos:"#0F7A53",
 };
 const mono = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
-const ANIOS = ["2022","2023","2024","2025","2026"];
-const CANALES = ["EV","GALASAM","GIANNA","SAMIRA","VARIAS","BLOQUE1","BLOQUE2","BLOQUE3","BLOQUE4","BLOQUE5"];
+const ANIOS = ["2018","2019","2020","2021","2022","2023","2024","2025","2026"];
+const CANALES = ["EV","GALASAM","GIANNA","SAMIRA","VARIAS"];
 
 const money=(n)=>(n===null||n===undefined||isNaN(n))?"":(n<0?"-$":"$")+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const dmy=(iso)=>{if(!iso)return"";const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso);return m?`${m[3]}/${m[2]}/${m[1]}`:iso;};
@@ -44,7 +44,7 @@ export default function App(){
   const [anio,setAnio]=useState("");
   const [canal,setCanal]=useState("");
   const [soloSaldo,setSoloSaldo]=useState(false);
-  const [orden,setOrden]=useState({col:null,dir:1}); // col: 13=fechaDep 12=dep 15=saldo 11=vr
+  const [orden,setOrden]=useState({col:null,dir:1}); // col: 14=fechaDep 13=dep 16=saldo 12=vr
 
   const activo = q.trim()!=="" || f1!=="" || f2!=="" || anio!=="" || canal!=="" || soloSaldo;
 
@@ -52,14 +52,15 @@ export default function App(){
     if(!activo) return [];
     const qq=q.trim().toLowerCase();
     let out = R.filter((r)=>{
-      const [yr,,,cn,num,,,,,,,,dep,fiso,ftxt,saldo]=r;
+      const [yr,,,cn,num,grupo,,,,,,,,dep,fiso,ftxt,saldo]=r;
       if(anio && yr!==anio) return false;
       if(canal && cn!==canal) return false;
       if(soloSaldo && !(Math.abs(saldo||0)>0.5)) return false;
       if(qq){
         const hayNum = num && String(num).toLowerCase().includes(qq);
+        const hayGrupo = grupo && String(grupo).toLowerCase().includes(qq);
         const hayTxt = ftxt && ftxt.toLowerCase().includes(qq);
-        if(!hayNum && !hayTxt) return false;
+        if(!hayNum && !hayGrupo && !hayTxt) return false;
       }
       if(f1 || f2){
         if(!fiso) return false;
@@ -82,8 +83,8 @@ export default function App(){
     return out;
   },[q,f1,f2,anio,canal,soloSaldo,orden,activo]);
 
-  const totDep = useMemo(()=>res.reduce((a,r)=>a+(r[12]||0),0),[res]);
-  const totPax = useMemo(()=>res.reduce((a,r)=>a+(r[5]||0),0),[res]);
+  const totDep = useMemo(()=>res.reduce((a,r)=>a+(r[13]||0),0),[res]);
+  const totPax = useMemo(()=>res.reduce((a,r)=>a+(r[6]||0),0),[res]);
 
   const limpiar=()=>{setQ("");setF1("");setF2("");setAnio("");setCanal("");setSoloSaldo(false);setOrden({col:null,dir:1});};
   const ordenar=(col)=>setOrden(o=>o.col===col?{col,dir:-o.dir}:{col,dir:1});
@@ -95,7 +96,7 @@ export default function App(){
     <header style={{background:C.navy,color:C.white}}>
       <div style={{maxWidth:1320,margin:"0 auto",padding:"14px 18px"}}>
         <div style={{fontSize:17,fontWeight:700}}>Consultas · Cuadro de Ventas</div>
-        <div style={{fontSize:11,color:"#9DB4C8",marginTop:2,letterSpacing:.5}}>HUMBOLDT EXPLORER · 2022–2026 · DATOS TAL CUAL DEL EXCEL</div>
+        <div style={{fontSize:11,color:"#9DB4C8",marginTop:2,letterSpacing:.5}}>HUMBOLDT EXPLORER · 2018–2026 · DATOS TAL CUAL DEL EXCEL</div>
       </div>
     </header>
 
@@ -167,13 +168,13 @@ export default function App(){
             /* ===== Vista de tarjetas (iPhone) ===== */
             <div style={{display:"flex",flexDirection:"column",gap:9}}>
               {res.slice(0,200).map((r,i)=>{
-                const [yr,sem,ini,cn,num,pax,grat,precio,cs,promo,neto,vr,dep,fiso,ftxt,saldo]=r;
+                const [yr,sem,ini,cn,num,grupo,pax,grat,precio,cs,promo,neto,vr,dep,fiso,ftxt,saldo,nres,nsem]=r;
                 const pend=Math.abs(saldo||0)>0.5;
                 return(
                 <div key={i} style={{background:C.white,border:`1px solid ${pend?"#EAD9B0":C.grid}`,borderRadius:12,padding:"12px 14px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontFamily:mono,fontWeight:700,fontSize:15.5,fontStyle:num?"normal":"italic",color:num?C.ink:C.slate}}>{num||"(ajuste)"}</span>
+                      <span style={{fontFamily:mono,fontWeight:700,fontSize:15.5,fontStyle:num?"normal":"italic",color:num?C.ink:C.slate}}>{num||(grupo?"\u21B3 "+grupo:"(ajuste)")}</span>
                       <TagCanal cn={cn}/>
                     </div>
                     <span style={{fontSize:11.5,fontFamily:mono,color:C.slate}}>{yr} · S{numFmt(sem)}</span>
@@ -208,22 +209,22 @@ export default function App(){
                       <th style={th}>Desc CS</th>
                       <th style={th}>Promoción</th>
                       <th style={th}>% neto</th>
-                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(11)}>Valor Reserva <IconOrden col={11}/></th>
-                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(12)}>Depósito <IconOrden col={12}/></th>
-                      <th style={{...th,textAlign:"center",cursor:"pointer"}} onClick={()=>ordenar(13)}>Fecha Dep. <IconOrden col={13}/></th>
-                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(15)}>Saldo <IconOrden col={15}/></th>
+                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(12)}>Valor Reserva <IconOrden col={12}/></th>
+                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(13)}>Depósito <IconOrden col={13}/></th>
+                      <th style={{...th,textAlign:"center",cursor:"pointer"}} onClick={()=>ordenar(14)}>Fecha Dep. <IconOrden col={14}/></th>
+                      <th style={{...th,cursor:"pointer"}} onClick={()=>ordenar(16)}>Saldo <IconOrden col={16}/></th>
                     </tr>
                   </thead>
                   <tbody>
                     {res.slice(0,400).map((r,i)=>{
-                      const [yr,sem,ini,cn,num,pax,grat,precio,cs,promo,neto,vr,dep,fiso,ftxt,saldo]=r;
+                      const [yr,sem,ini,cn,num,grupo,pax,grat,precio,cs,promo,neto,vr,dep,fiso,ftxt,saldo,nres,nsem]=r;
                       return(
                       <tr key={i} style={{background:i%2?C.white:"#FBFCFD"}}>
                         <td style={{...td,fontFamily:mono}}>{yr}</td>
                         <td style={{...td,fontFamily:mono}}>{numFmt(sem)}</td>
                         <td style={{...td,fontFamily:mono,fontSize:11.8,color:C.slate}}>{dmy(ini)}</td>
                         <td style={td}><TagCanal cn={cn}/></td>
-                        <td style={{...td,fontFamily:mono,fontWeight:600,fontStyle:num?"normal":"italic",color:num?C.ink:C.slate}}>{num||"(ajuste)"}</td>
+                        <td style={{...td,fontFamily:mono,fontWeight:600,fontStyle:num?"normal":"italic",color:num?C.ink:C.slate}}>{num?(nres&&String(nres)!==String(num)?num+" \u2192 "+nres:num):(grupo?"\u21B3 "+grupo:"(ajuste)")}</td>
                         <td style={tdN}>{numFmt(pax)}</td>
                         <td style={tdN}>{grat?numFmt(grat):""}</td>
                         <td style={tdN}>{money(precio)}</td>
